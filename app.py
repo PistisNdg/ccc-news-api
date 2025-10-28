@@ -226,9 +226,7 @@ def validate_news():
                     destinataire=%s,
                     importance=%s,
                     validateur=%s
-                where newsid=%s
-
-                )''',
+                where newsid=%s''',
                 (time.strftime("%Y-%m-%d"),status,date_publication, titre, contenu, destinataire,
                  importance, "Modérateur", newsid)
             )
