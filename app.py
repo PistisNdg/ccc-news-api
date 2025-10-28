@@ -218,7 +218,7 @@ def validate_news():
     try:
         cursor.execute(
                 '''update news set
-                    datevalidation=CURRENT_DATE,
+                    datevalidation=%s,
                     statut=%s,
                     datedepublication=%s,
                     titreapresvalidation=%s,
@@ -229,7 +229,7 @@ def validate_news():
                 where newsid=%s
 
                 )''',
-                (status,date_publication, titre, contenu, destinataire,
+                (time.strftime("%Y-%m-%d"),status,date_publication, titre, contenu, destinataire,
                  importance, "Modérateur", newsid)
             )
         cursor.close()
