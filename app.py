@@ -1,6 +1,6 @@
 from flask import send_file
 from flask import Flask, request, jsonify
-from db import get_connection
+from db import get_connection, init_db
 import os
 import base64
 from dotenv import load_dotenv
@@ -12,8 +12,11 @@ import random
 
 load_dotenv()
 
-app=Flask(__name__)
+app = Flask(__name__)
 CORS(app)
+
+# Initialiser la base de données au démarrage
+init_db()
 
 
 API_KEY=os.getenv("API_KEY")
@@ -35,19 +38,19 @@ def login():
     cursor=conn.cursor()
 
     try:
-        cursor.execute('SELECT nom,statut,motpasse FROM users WHERE username=? or email=?',[username, username,])
-        user=cursor.fetchall()
+        cursor.execute('SELECT nom, statut, motpasse FROM users WHERE username = %s OR email = %s', (username, username))
+        user = cursor.fetchall()
         if user:
             for result in user:
                 nom, statut, password = result
-            if bcrypt.checkpw(motpass.encode('utf'),password):
+            if bcrypt.checkpw(motpass.encode('utf-8'), bytes(password)):
                 return jsonify({
-                    "user":nom,
-                    "statut":statut}),200
+                    "user": nom,
+                    "statut": statut}), 200
             else:
-                return jsonify({'Erreur':'Mot de passe invalide'}),500
+                return jsonify({'Erreur': 'Mot de passe invalide'}), 500
         else:
-            return jsonify({'Erreur':'Id invalide'}),500
+            return jsonify({'Erreur': 'Id invalide'}), 500
         
     except Exception as ex:
         return jsonify({"Erreur":ex}),500
@@ -72,19 +75,20 @@ def add_user():
     conn=get_connection()
     cursor=conn.cursor()
     try:
-        cursor.execute("select username,email from users where username=? or email=?",[username,email,])
+        cursor.execute("SELECT username, email FROM users WHERE username = %s OR email = %s", (username, email))
         if cursor.fetchall():
-            return jsonify({'Erreur':'Ce compte existe déjà'}),500
+            return jsonify({'Erreur': 'Ce compte existe déjà'}), 500
         else:
             cursor.execute(
-                "INSERT INTO users VALUES(?,?,?,?,?,?,?,?)",(
-                userid,nom,prenom,sexe,email,username,password,statut)
+                """INSERT INTO users (userid, nom, prenom, sexe, email, username, motpasse, statut)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (userid, nom, prenom, sexe, email, username, password, statut)
             )
             cursor.close()
             conn.commit()
             conn.close()
         
-            return jsonify("Success"),200
+            return jsonify("Success"), 200
     
     except Exception as ex:
         return jsonify({"Erreur":ex}),500
@@ -103,16 +107,16 @@ def search_user():
     sql = """
                 SELECT userid, nom, prenom, sexe, email, username, statut
                 FROM users
-                WHERE LOWER(userid) LIKE ?
-                    OR LOWER(nom) LIKE ?
-                    OR LOWER(prenom) LIKE ?
-                    OR LOWER(email) LIKE ?
-                    OR LOWER(username) LIKE ?
+                WHERE LOWER(userid) LIKE %s
+                    OR LOWER(nom) LIKE %s
+                    OR LOWER(prenom) LIKE %s
+                    OR LOWER(email) LIKE %s
+                    OR LOWER(username) LIKE %s
                 ORDER BY nom
             """
-    q = (f'%{query}%').lower()
+    q = f'%{query.lower()}%'
     try:
-        cursor.execute(sql, (q, q, q, q, q,))
+        cursor.execute(sql, (q, q, q, q, q))
         response = cursor.fetchall()
         conn.close()
         retour=[]
@@ -137,7 +141,7 @@ def delete_user():
 
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("delete from users where userid=?",(userid,))
+        cursor.execute("DELETE FROM users WHERE userid = %s", (userid,))
         conn.commit()
         conn.close()
         return jsonify("success"),200
@@ -158,7 +162,7 @@ def create_news():
     date_publication=data.get("date")
     importance=data.get("importance")
     contenu=data.get("contenu")
-    date_redaction=time.strftime("%d-%m-%Y")
+    date_redaction=time.strftime("%Y-%m-%d")
     newsid=("news"+str(random.randint(100000, 999999)))
 
     conn=get_connection()
@@ -167,11 +171,20 @@ def create_news():
     try:
         cursor.execute(
                 '''INSERT INTO news(
-                                    newsid,dateredaction,titreavantvalidation,
-                                    contenuavantvalidation,destinataire,
-                                    importance,datedepublication) 
-                    VALUES(?,?,?,?,?,?,?,?)''',
-                    (newsid,date_redaction,titre,contenu,destinataire,importance,date_publication)
+                    newsid, dateredaction, titreavantvalidation,
+                    contenuavantvalidation, destinataire,
+                    importance, datedepublication, 
+                    statut, validateur, datevalidation,
+                    titreapresvalidation, contenuapresvalidation,
+                    motifinvalidation
+                ) 
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s,
+                    'En attente de validation', 'Inconnu', NULL,
+                    'Vide', 'Vide', 'Vide'
+                )''',
+                (newsid, date_redaction, titre, contenu, 
+                 destinataire, importance, date_publication)
             )
         cursor.close()
         conn.commit()
@@ -190,24 +203,39 @@ def get_news():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT newsid, dateredaction, titreavantvalidation, contenuavantvalidation, destinataire, importance, datedepublication FROM news"
-        )
+        cursor.execute("""
+            SELECT 
+                newsid, dateredaction, titreavantvalidation, 
+                contenuavantvalidation, destinataire, importance, 
+                datedepublication, statut, validateur, 
+                datevalidation, titreapresvalidation, 
+                contenuapresvalidation, motifinvalidation
+            FROM news
+            ORDER BY dateredaction DESC
+        """)
         rows = cursor.fetchall()
         conn.close()
 
         result = []
         for row in rows:
             (newsid, dateredaction, titreavantvalidation,
-             contenuavantvalidation, destinataire, importance, datedepublication) = row
+             contenuavantvalidation, destinataire, importance, 
+             datedepublication, statut, validateur, datevalidation,
+             titreapresvalidation, contenuapresvalidation, motifinvalidation) = row
             result.append({
                 "newsid": newsid,
-                "dateredaction": dateredaction,
+                "dateredaction": dateredaction.strftime('%d-%m-%Y') if dateredaction else None,
                 "titreavantvalidation": titreavantvalidation,
                 "contenuavantvalidation": contenuavantvalidation,
                 "destinataire": destinataire,
                 "importance": importance,
-                "datedepublication": datedepublication,
+                "datedepublication": datedepublication.strftime('%Y-%m-%d') if datedepublication else None,
+                "statut": statut,
+                "validateur": validateur,
+                "datevalidation": datevalidation.strftime('%Y-%m-%d') if datevalidation else None,
+                "titreapresvalidation": titreapresvalidation,
+                "contenuapresvalidation": contenuapresvalidation,
+                "motifinvalidation": motifinvalidation
             })
 
         return jsonify(result), 200
