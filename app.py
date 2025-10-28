@@ -259,7 +259,7 @@ def get_news():
                 datedepublication, statut, validateur, 
                 datevalidation, titreapresvalidation, 
                 contenuapresvalidation, motifinvalidation
-            FROM news
+            FROM news WHERE statut='Publiée'
             ORDER BY dateredaction DESC
         """)
         rows = cursor.fetchall()
