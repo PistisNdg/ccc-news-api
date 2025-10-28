@@ -193,10 +193,108 @@ def create_news():
         return jsonify("Success"),200
     except Exception as e:
         return jsonify ({"Erreur":e}),500
+    
+@app.route("/validate_news", methods=["POST"])
+def validate_news():
+    if not is_authorized(request):
+        return jsonify({"Erreur": "Unauthorized"}), 403
+    
+    data=request.get_json()
+    titre=data.get("titre")
+    destinataire=data.get("destinataire")
+    date_publication=data.get("date")
+    importance=data.get("importance")
+    contenu=data.get("contenu")
+    newsid=data.get("newsid")
+
+    conn=get_connection()
+    cursor=conn.cursor()
+
+    if date_publication!=time.strftime("%Y-%m-%d"):
+        status="Validée (Programmé)"
+    else:
+        status="Publiée"
+
+    try:
+        cursor.execute(
+                '''update news set
+                    datevalidation=CURRENT_DATE,
+                    statut=%s,
+                    datedepublication=%s,
+                    titreapresvalidation=%s,
+                    contenuapresvalidation=%s,
+                    destinataire=%s,
+                    importance=%s,
+                    validateur=%s
+                where newsid=%s
+
+                )''',
+                (status,date_publication, titre, contenu, destinataire,
+                 importance, "Modérateur", newsid)
+            )
+        cursor.close()
+        conn.commit()
+        conn.close()
+        
+        return jsonify("Success"),200
+    except Exception as e:
+        return jsonify ({"Erreur":e}),500
+    
+    try:
+        pass
+    except Exception as e:
+        return jsonify ({"Erreur":e}),500    
 
 
 @app.route("/get_news", methods=["GET"])
 def get_news():
+    if not is_authorized(request):
+        return jsonify({"Erreur": "Unauthorized"}), 403
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                newsid, dateredaction, titreavantvalidation, 
+                contenuavantvalidation, destinataire, importance, 
+                datedepublication, statut, validateur, 
+                datevalidation, titreapresvalidation, 
+                contenuapresvalidation, motifinvalidation
+            FROM news
+            ORDER BY dateredaction DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        result = []
+        for row in rows:
+            (newsid, dateredaction, titreavantvalidation,
+             contenuavantvalidation, destinataire, importance, 
+             datedepublication, statut, validateur, datevalidation,
+             titreapresvalidation, contenuapresvalidation, motifinvalidation) = row
+            result.append({
+                "newsid": newsid,
+                "dateredaction": dateredaction.strftime('%d-%m-%Y') if dateredaction else None,
+                "titreavantvalidation": titreavantvalidation,
+                "contenuavantvalidation": contenuavantvalidation,
+                "destinataire": destinataire,
+                "importance": importance,
+                "datedepublication": datedepublication.strftime('%Y-%m-%d') if datedepublication else None,
+                "statut": statut,
+                "validateur": validateur,
+                "datevalidation": datevalidation.strftime('%Y-%m-%d') if datevalidation else None,
+                "titreapresvalidation": titreapresvalidation,
+                "contenuapresvalidation": contenuapresvalidation,
+                "motifinvalidation": motifinvalidation
+            })
+
+        return jsonify(result), 200
+    except Exception as ex:
+        return jsonify({"Erreur": str(ex)}), 500
+    
+@app.route("/moderation_news", methods=["GET"])
+def moderation_news():
     if not is_authorized(request):
         return jsonify({"Erreur": "Unauthorized"}), 403
 
