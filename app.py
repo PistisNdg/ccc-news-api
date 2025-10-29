@@ -15,11 +15,9 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Initialiser la base de données au démarrage
-init_db()
-
-
 API_KEY=os.getenv("API_KEY")
+EMAIL=os.getenv("EMAIL")
+PASS=os.getenv("PASS")
 
 def is_authorized(req):
     return req.headers.get("x-api-key")==API_KEY
@@ -194,6 +192,22 @@ def create_news():
     except Exception as e:
         return jsonify ({"Erreur":e}),500
     
+def envoie_mail(to_,title,contenu):
+        s=smtplib.SMTP("smtp.gmail.com",587)
+        s.starttls()
+        email_=EMAIL
+        pass_=PASS
+        s.login(email_,pass_)
+        subj="Univ News : "+title
+        msg=contenu
+        msg="Subject:{}\n\n{}".format(subj,msg)
+        s.sendmail(email_,to_,msg)
+        chk=s.ehlo()
+        if chk[0]==250:
+            return 's'
+        else:
+            return 'f'
+            
 @app.route("/validate_news", methods=["POST"])
 def validate_news():
     if not is_authorized(request):
@@ -214,7 +228,12 @@ def validate_news():
         status="Validée (Programmé)"
     else:
         status="Publiée"
-
+        cursor.execute("SELECT email FROM users WHERE statut='Etudiant'")
+        rows=cursor.fetchall()
+        for row in rows:
+            to_=row[0]
+            envoie_mail(to_,titre,contenu)
+            
     try:
         cursor.execute(
                 '''update news set
