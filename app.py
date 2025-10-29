@@ -30,7 +30,7 @@ API_KEY=os.getenv("API_KEY")
 EMAIL=os.getenv("EMAIL")
 PASS=os.getenv("PASS")
 FCM_API_KEY=os.getenv("FCM_API_KEY")
-push_service = FCMNotification(api_key=FCM_API_KEY)
+push_service = FCMNotification(FCM_API_KEY)
 user_tokens = []
 
 def is_authorized(req):
