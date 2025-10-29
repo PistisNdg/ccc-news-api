@@ -2,18 +2,23 @@ from flask import send_file
 from flask import Flask, request, jsonify
 from db import get_connection, init_db
 import os
-import base64
 from dotenv import load_dotenv
 from flask_cors import CORS
 import time
+from datetime import datetime, timedelta
 import bcrypt
 import smtplib
 import random
+from apscheduler.schedulers.background import BackgroundScheduler
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# Initialisation du scheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
 
 API_KEY=os.getenv("API_KEY")
 EMAIL=os.getenv("EMAIL")
@@ -192,21 +197,43 @@ def create_news():
     except Exception as e:
         return jsonify ({"Erreur":e}),500
     
-def envoie_mail(to_,title,contenu):
-        s=smtplib.SMTP("smtp.gmail.com",587)
+def envoie_mail_to_all(titre, contenu):
+    """Fonction pour envoyer des mails à tous les étudiants"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT email FROM users WHERE statut='Etudiant'")
+        rows = cursor.fetchall()
+        conn.close()
+
+        s = smtplib.SMTP("smtp.gmail.com", 587)
         s.starttls()
-        email_=EMAIL
-        pass_=PASS
-        s.login(email_,pass_)
-        subj="Univ News : "+title
-        msg=contenu
-        msg="Subject:{}\n\n{}".format(subj,msg)
-        s.sendmail(email_,to_,msg)
-        chk=s.ehlo()
-        if chk[0]==250:
-            return 's'
-        else:
-            return 'f'
+        s.login(EMAIL, PASS)
+
+        for row in rows:
+            to_ = row[0]
+            subj = "Univ News : " + titre
+            msg = "Subject:{}\n\n{}".format(subj, contenu)
+            s.sendmail(EMAIL, to_, msg)
+
+        s.quit()
+        return True
+    except Exception as e:
+        print(f"Erreur d'envoi de mail : {str(e)}")
+        return False
+
+def programmer_envoi_mail(titre, contenu, date_envoi):
+    """Fonction pour programmer l'envoi des mails"""
+    job_id = f"mail_job_{int(time.time())}"
+    scheduler.add_job(
+        func=envoie_mail_to_all,
+        trigger='date',
+        run_date=date_envoi,
+        args=[titre, contenu],
+        id=job_id,
+        replace_existing=True
+    )
+    return job_id
             
 @app.route("/validate_news", methods=["POST"])
 def validate_news():
@@ -224,16 +251,22 @@ def validate_news():
     conn=get_connection()
     cursor=conn.cursor()
 
-    if date_publication!=time.strftime("%Y-%m-%d"):
-        status="Validée (Programmé)"
+    # Convertir la date de publication en objet datetime
+    date_pub = datetime.strptime(date_publication, "%Y-%m-%d")
+    aujourd_hui = datetime.now().date()
+    
+    if date_pub.date() == aujourd_hui:
+        # Si c'est aujourd'hui, programmer l'envoi dans 10 minutes
+        date_envoi = datetime.now() + timedelta(minutes=10)
+        status = "Publiée"
     else:
-        status="Publiée"
-        cursor.execute("SELECT email FROM users WHERE statut='Etudiant'")
-        rows=cursor.fetchall()
-        for row in rows:
-            to_=row[0]
-            envoie_mail(to_,titre,contenu)
-            
+        # Si c'est une date future, programmer pour 6h du matin
+        date_envoi = datetime.combine(date_pub, datetime.strptime("06:00", "%H:%M").time())
+        status = "Validée (Programmé)"
+    
+    # Programmer l'envoi des mails
+    job_id = programmer_envoi_mail(titre, contenu, date_envoi)
+
     try:
         cursor.execute(
                 '''update news set
