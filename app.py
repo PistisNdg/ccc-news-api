@@ -1,6 +1,6 @@
 from flask import send_file
 from flask import Flask, request, jsonify
-from db import get_connection, init_db
+from db import get_connection
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
