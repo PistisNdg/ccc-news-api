@@ -36,6 +36,10 @@ user_tokens = []
 def is_authorized(req):
     return req.headers.get("x-api-key")==API_KEY
 
+@app.route("/")
+def home():
+    return "Bienvenue sur l'API de gestion des news et des utilisateurs.", 200
+
 ##--Route Connexion--
 @app.route("/login", methods=["POST"])
 def login():
