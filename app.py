@@ -259,24 +259,56 @@ def envoie_mail_to_all(titre, contenu):
         return False
     
 def verifier_et_envoyer():
+    logging.info("Démarrage du service de vérification des news")
     while True:
-        conn=get_connection()
-        cursor=conn.cursor()
-        cursor.execute("SELECT newsid,datedepublication,titreapresvalidation,contenuapresvalidation from news where statut='Validée (Programmé)'")
-        result=cursor.fetchall()
-        for row in result:
-            newsid,date,titre,contenu=row
-            if date==time.strftime("%Y-%m-%d"):
-                envoie_mail_to_all(titre,contenu)
-                send_notification(titre, contenu)
-                cursor.execute("update news set statut='Publiée' where newsid=%s",(newsid,))
-                conn.commit()
-            else:
-                continue
-        time.sleep(300)  # Vérifie toutes les 5 minutes (300 secondes)
+        try:
+            conn = None
+            cursor = None
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT newsid, datedepublication, titreapresvalidation, contenuapresvalidation 
+                    FROM news 
+                    WHERE statut='Validée (Programmé)'
+                """)
+                result = cursor.fetchall()
+                
+                current_date = time.strftime("%Y-%m-%d")
+                for row in result:
+                    newsid, date, titre, contenu = row
+                    if date == current_date:
+                        logging.info(f"Traitement de la news {newsid} pour publication")
+                        if envoie_mail_to_all(titre, contenu):
+                            send_notification(titre, contenu)
+                            cursor.execute("UPDATE news SET statut='Publiée' WHERE newsid=%s", (newsid,))
+                            conn.commit()
+                            logging.info(f"News {newsid} publiée avec succès")
+                        else:
+                            logging.error(f"Échec de l'envoi des notifications pour la news {newsid}")
+                
+            except Exception as e:
+                logging.error(f"Erreur lors de la vérification des news: {str(e)}")
+                if conn and not conn.closed:
+                    conn.rollback()
+            
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn and not conn.closed:
+                    conn.close()
+                    
+            # Attendre 5 minutes avant la prochaine vérification
+            time.sleep(300)
+            
+        except Exception as e:
+            logging.error(f"Erreur critique dans la boucle principale: {str(e)}")
+            # En cas d'erreur critique, attendre 1 minute avant de réessayer
+            time.sleep(60)
 
 # Lancer le vérificateur en parallèle du serveur Flask
-threading.Thread(target=verifier_et_envoyer, daemon=True).start()
+scheduler_thread = threading.Thread(target=verifier_et_envoyer, daemon=True)
+scheduler_thread.start()
             
 @app.route("/validate_news", methods=["POST"])
 def validate_news():
