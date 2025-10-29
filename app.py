@@ -20,7 +20,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# NOTE: scheduler will be initialised after we read APP_TIMEZONE and DB_URL
+#NOTE: scheduler will be initialised after we read APP_TIMEZONE and DB_URL
 
 # Logging de base
 logging.basicConfig(level=logging.INFO)
@@ -259,7 +259,7 @@ def envoie_mail_to_all(titre, contenu):
         return False
     
 def verifier_et_envoyer():
-    logging.info("Démarrage du service de vérification des news")
+    #logging.info("Démarrage du service de vérification des news")
     while True:
         try:
             conn = None
@@ -278,7 +278,7 @@ def verifier_et_envoyer():
                 for row in result:
                     newsid, date, titre, contenu = row
                     if date == current_date:
-                        logging.info(f"Traitement de la news {newsid} pour publication")
+                        #logging.info(f"Traitement de la news {newsid} pour publication")
                         if envoie_mail_to_all(titre, contenu):
                             send_notification(titre, contenu)
                             cursor.execute("UPDATE news SET statut='Publiée' WHERE newsid=%s", (newsid,))
@@ -347,6 +347,7 @@ def validate_news():
         conn.close()
         
         return jsonify("Success"),200
+        
     except Exception as e:
         return jsonify ({"Erreur":e}),500
 
