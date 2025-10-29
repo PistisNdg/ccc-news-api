@@ -358,7 +358,7 @@ def validate_news():
         # Si la date demandée est aujourd'hui (dans le fuseau APP_TZ), programmer dans 10 minutes
         if date_pub_date == now_tz.date():
             date_envoi = now_tz + timedelta(minutes=3)
-            status = "Validée (Programmé)"
+            status = "Publiée"
         else:
             # Pour une date future, programmer à 06:00 dans le fuseau APP_TZ
             date_envoi = datetime(date_pub_date.year, date_pub_date.month, date_pub_date.day, 6, 0, 0, tzinfo=APP_TZ)
