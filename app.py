@@ -45,9 +45,9 @@ def init_accueil():
     if not is_authorized(request):
         return jsonify({"Erreur": "Unauthorized"}), 403
     
+    conn=get_connection()
+    cursor=conn.cursor()
     try:
-        conn=get_connection()
-        cursor=conn.cursor()
         cursor.execute("SELECT * FROM news WHERE statut='Validée (Programmé)' AND datedepublication=%s", (time.strftime("%Y-%m-%d"),))
         valid_count=len(cursor.fetchall())
 
