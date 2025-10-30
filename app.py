@@ -34,7 +34,7 @@ def notification():
     except Exception as e:
       logging.info("Erreur threading")
       
-notification()
+#notification()
 
 @app.route("/")
 def home():
