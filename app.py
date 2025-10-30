@@ -328,9 +328,6 @@ def verifier_et_envoyer():
             logging.error(f"Erreur critique dans la boucle principale: {str(e)}")
             # En cas d'erreur critique, attendre 1 minute avant de réessayer
             time.sleep(60)
-
-# Lancer le vérificateur en parallèle du serveur Flask
-threading.Thread(target=verifier_et_envoyer, daemon=True).start()
             
 @app.route("/validate_news", methods=["POST"])
 def validate_news():
@@ -367,6 +364,7 @@ def validate_news():
                 (time.strftime("%Y-%m-%d"), status, date_publication, titre, contenu, destinataire,
                 importance, "Modérateur", newsid)
             )
+            verifier_et_envoyer()
         else:
             status = "Invalidée"
             conn = get_connection()
