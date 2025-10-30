@@ -1,3 +1,4 @@
+import threading
 import time
 import logging
 import os
@@ -57,75 +58,95 @@ def send_notification(title, message):
         response = messaging.send(message)
         logging.info('Message envoyé avec succès:', response)
     except Exception as e:
-        logging.info(f'Erreur lors de l\'envoi du message: {e}')
+        logging.error(f'Erreur lors de l\'envoi du message: {e}')
     
 def envoie_mail_to_all(titre, contenu):
     """Fonction pour envoyer des mails à tous les étudiants"""
+    success_count = 0
+    error_count = 0
+    
     try:
+        # Connexion à la base de données
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT email FROM users WHERE statut='Etudiant'")
         rows = cursor.fetchall()
         conn.close()
 
+        # Connexion au serveur SMTP
         s = smtplib.SMTP("smtp.gmail.com", 587)
         s.starttls()
         s.login(EMAIL, PASS)
 
+        # Préparation du message
+        subj = "Univ News : " + titre
+        msg = f"Subject: {subj}\nContent-Type: text/plain; charset=utf-8\n\n{contenu}"
+        encoded_msg = msg.encode('utf-8')
+
+        # Envoi à chaque destinataire
         for row in rows:
             to_ = row[0]
-            subj = "Univ News : " + titre
-            msg = f"Subject: {subj}\nContent-Type: text/plain; charset=utf-8\n\n{contenu}"
-            s.sendmail(EMAIL, to_, msg.encode('utf-8'))
-            logging.info(f"Mail envoyé à {to_}")
+            try:
+                s.sendmail(EMAIL, to_, encoded_msg)
+                logging.info(f"Mail envoyé avec succès à {to_}")
+                success_count += 1
+            except smtplib.SMTPRecipientsRefused:
+                error_msg = f"Email invalide ou refusé : {to_}"
+                logging.error(error_msg)
+                error_count += 1
+            except Exception as e:
+                error_msg = f"Erreur lors de l'envoi à {to_} : {str(e)}"
+                logging.error(error_msg)
+                error_count += 1
+
+        # Fermeture de la connexion SMTP
+        s.quit()
+        
+        # Résumé des envois
+        logging.info(f"Résumé des envois - Succès: {success_count}, Échecs: {error_count}")
+        return success_count > 0  # Retourne True si au moins un email a été envoyé
 
     except Exception as e:
-        logging.info(f"Erreur d'envoi de mail : {str(e)}")
+        error_msg = f"Erreur générale d'envoi de mail : {str(e)}"
+        logging.error(error_msg)
         return False
     
 def verifier_et_envoyer():
     #logging.info("Démarrage du service de vérification des news")
     while True:
         try:
-            conn = None
-            cursor = None
-            try:
-                conn = get_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT newsid, datedepublication, titreapresvalidation, contenuapresvalidation 
-                    FROM news 
-                    WHERE statut='Validée (Programmé)'
-                """)
-                result = cursor.fetchall()
-                current_date = time.strftime("%Y-%m-%d")
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                            SELECT newsid, datedepublication, titreapresvalidation, contenuapresvalidation 
+                            FROM news 
+                            WHERE statut='Validée (Programmé)'
+            """)
+            result = cursor.fetchall()
+            current_date = str(time.strftime("%Y-%m-%d"))
+            if result:
                 for row in result:
                     newsid, date, titre, contenu = row
-                    if date == current_date:
-                        #logging.info(f"Traitement de la news {newsid} pour publication")
-                        if envoie_mail_to_all(titre, contenu):
-                            send_notification(titre, contenu)
-                            cursor.execute("UPDATE news SET statut='Publiée' WHERE newsid=%s", (newsid,))
-                            conn.commit()
-                            #logging.info(f"News {newsid} publiée avec succès")
-                        else:
-                            logging.error(f"Échec de l'envoi des notifications pour la news {newsid}")
+                    if str(date) == str(current_date):
+                        cursor.execute("UPDATE news SET statut='Publiée' WHERE newsid=%s", (newsid,))
+                        envoie_mail_to_all(titre, contenu)
+                        send_notification(titre, contenu)
+                        conn.commit()
+                        time.sleep(60)
+                #conn.close()
+                    else:
+                        pass
+                        time.sleep(30)  # Attendre 5 minutes avant la prochaine vérification
                 
-            except Exception as e:
-                logging.error(f"Erreur lors de la vérification des news: {str(e)}")
-                if conn and not conn.closed:
-                    conn.rollback()
-            
-            finally:
-                if cursor:
-                    cursor.close()
-                if conn and not conn.closed:
-                    conn.close()
-                    
-            # Attendre 5 minutes avant la prochaine vérification
-            time.sleep(300)
-            
+            else:
+                conn.close()
+            time.sleep(30)  # Attendre 5 minutes avant la prochaine vérification
         except Exception as e:
-            logging.error(f"Erreur critique dans la boucle principale: {str(e)}")
-            # En cas d'erreur critique, attendre 1 minute avant de réessayer
-            time.sleep(300)
+            logging.error(f"Erreur dans le vérificateur de news : {str(e)}")
+
+            #logging.info(f"News {newsid} publiée avec succès")
+
+
+# Lancer le vérificateur en parallèle du serveur Flask
+thread = threading.Thread(target=verifier_et_envoyer, daemon=False)
+thread.start()
