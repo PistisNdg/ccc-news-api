@@ -28,7 +28,7 @@ PASS=os.getenv("PASS")
 def is_authorized(req):
     return req.headers.get("x-api-key")==API_KEY
   
-def notification:
+def notification():
     try:
       verifier_et_envoyer()
     except Exception as e:
