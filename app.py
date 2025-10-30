@@ -364,7 +364,30 @@ def validate_news():
                 (time.strftime("%Y-%m-%d"), status, date_publication, titre, contenu, destinataire,
                 importance, "Modérateur", newsid)
             )
-            verifier_et_envoyer()
+            firebase_service_account_json = os.getenv("FIREBASE_KEY")
+            firebase_config = json.loads(firebase_service_account_json)
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred)
+            # Construire le message
+            message = messaging.Message(
+                notification=messaging.Notification(
+                    title='Nouvelle Annonce !',
+                    body="Découvrez les dernières nouveautés de notre application. C'est génial !",
+                ),
+                # Le nom du sujet doit correspondre à celui auquel les clients s'abonnent
+                topic='allUsers',
+                # Vous pouvez ajouter des données personnalisées si nécessaire
+            )
+
+            # Envoyer le message
+            try:
+                response = messaging.send(message)
+                logging.info('Message envoyé avec succès:', response)
+            except Exception as e:
+                logging.info(f'Erreur lors de l\'envoi du message: {e}')
+            conn.commit()
+            cursor.close()
+            conn.close()
         else:
             status = "Invalidée"
             conn = get_connection()
