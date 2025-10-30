@@ -1,4 +1,3 @@
-
 from db import get_connection
 import os
 from dotenv import load_dotenv
@@ -11,11 +10,6 @@ import threading
 from email.mime.text import MIMEText
 
 load_dotenv()
-
-#scheduler will be initialised after we read APP_TIMEZONE and DB_URL
-
-# Logging de base
-logging.basicConfig(level=logging.INFO)
 
 # Replace ZoneInfo usage with pytz
 API_KEY=os.getenv("API_KEY")

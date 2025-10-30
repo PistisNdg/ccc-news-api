@@ -408,6 +408,9 @@ def moderation_news():
         return jsonify({"Erreur": "Unauthorized"}), 403
 
     try:
+        data=request.get_json()
+        importance=data.get("importance")
+        statut=data.get("statut")
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -417,9 +420,9 @@ def moderation_news():
                 datedepublication, statut, validateur, 
                 datevalidation, titreapresvalidation, 
                 contenuapresvalidation, motifinvalidation
-            FROM news
+            FROM news WHERE importance=%s AND statut=%s
             ORDER BY dateredaction DESC
-        """)
+        """,(importance,statut,))
         rows = cursor.fetchall()
         conn.close()
 
