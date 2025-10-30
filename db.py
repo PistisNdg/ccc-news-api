@@ -148,5 +148,5 @@ def verifier_et_envoyer():
 
 
 # Lancer le vérificateur en parallèle du serveur Flask
-thread = threading.Thread(target=verifier_et_envoyer, daemon=False)
+thread = threading.Thread(target=verifier_et_envoyer, daemon=True)
 thread.start()
