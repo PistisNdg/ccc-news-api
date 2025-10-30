@@ -10,7 +10,7 @@ import random
 import logging
 
 load_dotenv()
-#verifier_et_envoyer()  # Initial call to set up any pending notifications
+verifier_et_envoyer()  # Initial call to set up any pending notifications
 
 app = Flask(__name__)
 CORS(app)
