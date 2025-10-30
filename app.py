@@ -1,4 +1,3 @@
-from flask import send_file
 from flask import Flask, request, jsonify
 from db import get_connection
 import os
@@ -8,12 +7,13 @@ import time
 from datetime import datetime, timedelta
 import bcrypt
 import smtplib
+import json
 import random
-import pytz
-from pyfcm import FCMNotification
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import messaging
 import logging
 import threading
-from email.mime.text import MIMEText
 
 load_dotenv()
 
@@ -29,9 +29,6 @@ logging.basicConfig(level=logging.INFO)
 API_KEY=os.getenv("API_KEY")
 EMAIL=os.getenv("EMAIL")
 PASS=os.getenv("PASS")
-FCM_API_KEY=os.getenv("FCM_API_KEY")
-push_service = FCMNotification(FCM_API_KEY)
-user_tokens = []
 
 def is_authorized(req):
     return req.headers.get("x-api-key")==API_KEY
@@ -47,6 +44,7 @@ def init_accueil():
     
     conn=get_connection()
     cursor=conn.cursor()
+    
     try:
         cursor.execute("SELECT * FROM news WHERE statut='Validée (Programmé)' AND datedepublication=%s", (time.strftime("%Y-%m-%d"),))
         valid_count=len(cursor.fetchall())
@@ -236,33 +234,29 @@ def create_news():
         return jsonify("Success"),200
     except Exception as e:
         return jsonify ({"Erreur":e}),500
-    
-@app.route("/register_token", methods=["POST"])
-def register_token():
-    if not is_authorized(request):
-        return jsonify({"Erreur": "Unauthorized"}), 403
-    
-    data = request.get_json()
-    token = data.get("token")
-    
-    if token and token not in user_tokens:
-        user_tokens.append(token)
-        return jsonify({"message": "Token registered successfully"}), 200
-    return jsonify({"status": "success","tokens_count": len(user_tokens)}), 200
 
 def send_notification(title, message):    
-    if not user_tokens:
-        return jsonify({"Erreur": "No registered tokens"}), 400
-    
+    firebase_service_account_json = os.getenv("FIREBASE_KEY")
+    firebase_config = json.loads(firebase_service_account_json)
+    cred = credentials.Certificate(firebase_config)
+    firebase_admin.initialize_app(cred)
+    # Construire le message
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title='Nouvelle Annonce !',
+            body="Découvrez les dernières nouveautés de notre application. C'est génial !",
+        ),
+        # Le nom du sujet doit correspondre à celui auquel les clients s'abonnent
+        topic='allUsers',
+        # Vous pouvez ajouter des données personnalisées si nécessaire
+    )
+
+    # Envoyer le message
     try:
-        result = push_service.notify_multiple_devices(
-            registration_ids=user_tokens,
-            message_title=title,
-            message_body=message
-        )
-        return jsonify(result), 200
+        response = messaging.send(message)
+        logging.info('Message envoyé avec succès:', response)
     except Exception as e:
-        return jsonify({"Erreur": str(e)}), 500
+        logging.info(f'Erreur lors de l\'envoi du message: {e}')
     
 def envoie_mail_to_all(titre, contenu):
     """Fonction pour envoyer des mails à tous les étudiants"""
@@ -279,14 +273,13 @@ def envoie_mail_to_all(titre, contenu):
 
         for row in rows:
             to_ = row[0]
-            subj = "Univ News : " + titre
-            msg = "Subject:{}\n\n{}".format(subj, contenu)
-            s.sendmail(EMAIL, to_, msg)
+            subj = "Univ News : " + "Test"
+            msg = f"Subject: {subj}\nContent-Type: text/plain; charset=utf-8\n\nPitié, faite que ça marche"
+            s.sendmail(EMAIL, to_, msg.encode('utf-8'))
+            logging.info(f"Mail envoyé à {to_}")
 
-        s.quit()
-        return True
     except Exception as e:
-        print(f"Erreur d'envoi de mail : {str(e)}")
+        logging.info(f"Erreur d'envoi de mail : {str(e)}")
         return False
     
 def verifier_et_envoyer():
@@ -304,7 +297,6 @@ def verifier_et_envoyer():
                     WHERE statut='Validée (Programmé)'
                 """)
                 result = cursor.fetchall()
-                
                 current_date = time.strftime("%Y-%m-%d")
                 for row in result:
                     newsid, date, titre, contenu = row
@@ -314,7 +306,7 @@ def verifier_et_envoyer():
                             send_notification(titre, contenu)
                             cursor.execute("UPDATE news SET statut='Publiée' WHERE newsid=%s", (newsid,))
                             conn.commit()
-                            logging.info(f"News {newsid} publiée avec succès")
+                            #logging.info(f"News {newsid} publiée avec succès")
                         else:
                             logging.error(f"Échec de l'envoi des notifications pour la news {newsid}")
                 
@@ -338,8 +330,7 @@ def verifier_et_envoyer():
             time.sleep(60)
 
 # Lancer le vérificateur en parallèle du serveur Flask
-scheduler_thread = threading.Thread(target=verifier_et_envoyer, daemon=True)
-scheduler_thread.start()
+threading.Thread(target=verifier_et_envoyer, daemon=True).start()
             
 @app.route("/validate_news", methods=["POST"])
 def validate_news():
