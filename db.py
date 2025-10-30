@@ -128,4 +128,4 @@ def verifier_et_envoyer():
         except Exception as e:
             logging.error(f"Erreur critique dans la boucle principale: {str(e)}")
             # En cas d'erreur critique, attendre 1 minute avant de réessayer
-            time.sleep(60)
+            time.sleep(300)
