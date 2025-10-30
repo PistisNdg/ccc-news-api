@@ -8,3 +8,4 @@ SQLAlchemy==2.0.23
 werkzeug==2.3.7
 APScheduler==3.10.4
 pyfcm==2.1.0
+firebase_admin=6.9.0
