@@ -409,8 +409,8 @@ def moderation_news():
 
     try:
         data=request.get_json()
-        importance=data.get("importance")
-        statut=data.get("statut")
+        importance=data.get("importance") if data.get("importance") else "Faible"
+        statut=data.get("statut") if data.get("statut") else "En attente de validation"
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
