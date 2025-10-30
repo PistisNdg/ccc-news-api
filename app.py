@@ -40,6 +40,33 @@ def is_authorized(req):
 def home():
     return "Bienvenue sur l'API de gestion des news et des utilisateurs.", 200
 
+@app.route("/init_accueil", methods=["GET"])
+def init_accueil():
+    if not is_authorized(request):
+        return jsonify({"Erreur": "Unauthorized"}), 403
+    
+    try:
+        conn=get_connection()
+        cursor=conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='Validée (Programmé)'")
+        valid_count=cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='Publiée'")
+        news_count=cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='En attente de validation'")
+        pending_count=cursor.fetchone()[0]
+
+        conn.close()
+
+        return jsonify({
+            "valid_count": valid_count,
+            "news_count": news_count,
+            "pending_count": pending_count
+        }),200
+    except Exception as ex:
+        return jsonify({"Erreur":str(ex)}),500
+    
 ##--Route Connexion--
 @app.route("/login", methods=["POST"])
 def login():
