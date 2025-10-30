@@ -10,7 +10,7 @@ import random
 import logging
 
 load_dotenv()
-verifier_et_envoyer()  # Initial call to set up any pending notifications
+  # Initial call to set up any pending notifications
 
 app = Flask(__name__)
 CORS(app)
@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 API_KEY=os.getenv("API_KEY")
 EMAIL=os.getenv("EMAIL")
 PASS=os.getenv("PASS")
-
+verifier_et_envoyer()
 def is_authorized(req):
     return req.headers.get("x-api-key")==API_KEY
 
