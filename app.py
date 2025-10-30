@@ -326,26 +326,49 @@ def validate_news():
     importance=data.get("importance")
     contenu=data.get("contenu")
     newsid=data.get("newsid")
-    status = "Validée (Programmé)"
+    
+    commentaire=data.get("commentaire") if data.get("commentaire") else "Aucun"
 
     try:
         # Si la date demandée est aujourd'hui (dans le fuseau APP_TZ), programmer dans 10 minutes
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            '''update news set
-                datevalidation=%s,
-                statut=%s,
-                datedepublication=%s,
-                titreapresvalidation=%s,
-                contenuapresvalidation=%s,
-                destinataire=%s,
-                importance=%s,
-                validateur=%s
-            where newsid=%s''',
-            (time.strftime("%Y-%m-%d"), status, date_publication, titre, contenu, destinataire,
-             importance, "Modérateur", newsid)
-        )
+        if commentaire=="Aucun":
+            status = "Validée (Programmé)"
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                '''update news set
+                    datevalidation=%s,
+                    statut=%s,
+                    datedepublication=%s,
+                    titreapresvalidation=%s,
+                    contenuapresvalidation=%s,
+                    destinataire=%s,
+                    importance=%s,
+                    validateur=%s
+                where newsid=%s''',
+                (time.strftime("%Y-%m-%d"), status, date_publication, titre, contenu, destinataire,
+                importance, "Modérateur", newsid)
+            )
+        else:
+            status = "Invalidée"
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                '''update news set
+                    datevalidation=%s,
+                    statut=%s,
+                    datedepublication=%s,
+                    titreapresvalidation=%s,
+                    contenuapresvalidation=%s,
+                    destinataire=%s,
+                    importance=%s,
+                    validateur=%s,
+                    motifinvalidation=%s
+                where newsid=%s''',
+                (time.strftime("%Y-%m-%d"), status, date_publication, titre, contenu, destinataire,
+                importance, "Modérateur", commentaire, newsid)
+            )
+
         conn.commit()
         cursor.close()
         conn.close()
