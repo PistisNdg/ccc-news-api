@@ -90,6 +90,7 @@ def login():
                 nom, statut, password = result
             if bcrypt.checkpw(motpass.encode('utf-8'), bytes(password)):
                 return jsonify({
+                  "Success":True,
                     "user": nom,
                     "statut": statut}), 200
             else:
