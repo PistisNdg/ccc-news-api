@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from db import get_connection,verifier_et_envoyer
+from db import get_connection
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
