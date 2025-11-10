@@ -10,17 +10,13 @@ import random
 import logging
 
 load_dotenv()
-  # Initial call to set up any pending notifications
 
 app = Flask(__name__)
 CORS(app)
 
-#NOTE: scheduler will be initialised after we read APP_TIMEZONE and DB_URL
-
 # Logging de base
 logging.basicConfig(level=logging.INFO)
 
-# Replace ZoneInfo usage with pytz
 API_KEY=os.getenv("API_KEY")
 EMAIL=os.getenv("EMAIL")
 PASS=os.getenv("PASS")
@@ -282,7 +278,6 @@ def validate_news():
     commentaire=data.get("commentaire") if data.get("commentaire") else "Aucun"
 
     try:
-        # Si la date demandée est aujourd'hui (dans le fuseau APP_TZ), programmer dans 10 minutes
         if commentaire=="Aucun":
             status = "Validée (Programmé)"
             conn = get_connection()
