@@ -1,15 +1,8 @@
-import threading
-import time
 import logging
 import os
 import psycopg2
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-import smtplib
-import json
-import firebase_admin
-from firebase_admin import credentials
-from firebase_admin import messaging
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
