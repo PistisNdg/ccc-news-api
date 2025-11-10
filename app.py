@@ -50,13 +50,13 @@ def init_accueil():
     cursor=conn.cursor()
 
     try:
-        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='Validée (Programmé)' AND datedepublication=%s", (time.strftime("%Y-%m-%d"),))
+        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='Validée (Programmé)'")
         valid_count=cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='Publiée' AND datedepublication=%s", (time.strftime("%Y-%m-%d"),))
+        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='Publiée'")
         news_count=cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='En attente de validation' AND datedepublication>=%s", (time.strftime("%Y-%m-%d"),))
+        cursor.execute("SELECT COUNT(*) FROM news WHERE statut='En attente de validation'")
         pending_count=cursor.fetchone()[0]
 
         conn.close()
