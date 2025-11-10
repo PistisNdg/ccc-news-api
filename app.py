@@ -92,6 +92,40 @@ def login():
         
     except Exception as ex:
         return jsonify({"Erreur":ex}),500
+
+@app.route("/login_manage", methods=["POST"])
+def login_manage():
+    if not is_authorized(request):
+        return jsonify({"Erreur": "Unauthorized"}), 403
+    
+    data=request.get_json()
+    username=data.get("username")
+    motpass=data.get("motpass")
+
+    conn=get_connection()
+    cursor=conn.cursor()
+
+    try:
+        cursor.execute('SELECT nom, statut, motpasse FROM users WHERE username = %s OR email = %s', (username, username))
+        user = cursor.fetchall()
+        if user:
+            for result in user:
+                nom, statut, password = result
+            if bcrypt.checkpw(motpass.encode('utf-8'), bytes(password)):
+                if statut=="Etudiant":
+                    return jsonify({'Erreur': "Vous n'êtes pas autorisé à accéder"}), 500
+                else:
+                    return jsonify({
+                      "Success":True,
+                        "user": nom,
+                        "statut": statut}), 200
+            else:
+                return jsonify({'Erreur': 'Mot de passe invalide'}), 500
+        else:
+            return jsonify({'Erreur': 'Id invalide'}), 500
+        
+    except Exception as ex:
+        return jsonify({"Erreur":ex}),500
     
 ##--Routes Users-----
 @app.route("/add_user",methods=["POST"])
